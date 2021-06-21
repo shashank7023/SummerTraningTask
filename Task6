@@ -1,0 +1,192 @@
+# creating training data and sample collection of yours
+
+
+import cv2
+import numpy as np
+
+# using haarcascade_frontalface_default.xml
+
+face_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+# creating a function for the captyring of the photos
+def face_extractor(img):
+    
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    faces = face_classifier.detectMultiScale(gray, 1.3, 5)
+    
+    if faces is ():
+        return None
+    
+    # Crop all faces found
+    for (x,y,w,h) in faces:
+        cropped_face = img[y:y+h, x:x+w]
+
+    return cropped_face
+
+# capturing photos 
+cap = cv2.VideoCapture(0)
+count = 0
+
+# a while loop until 100 samples
+while True:
+
+    ret, frame = cap.read()
+    if face_extractor(frame) is not None:
+        count += 1
+        face = cv2.resize(face_extractor(frame), (200, 200))
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+
+        # Save file in specified directory with unique name
+        file_name_path = './faces/user/' + str(count) + '.jpg'
+        cv2.imwrite(file_name_path, face)
+
+        # counting of the images
+        cv2.putText(face, str(count), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0,255,0), 2)
+        cv2.imshow('Face Cropper', face)
+        
+    else:
+        print("Face not found")
+        pass
+
+    if cv2.waitKey(1) == 13 or count == 100: #13 is the Enter Key
+        break
+        
+cap.release()
+cv2.destroyAllWindows()      
+print("samples collection complete")
+
+
+
+
+#training of our data
+cap.release()
+import cv2
+import numpy as np
+from os import listdir
+from os.path import isfile, join
+
+# Get the training data we previously made
+data_path = './faces/user/'
+onlyfiles = [f for f in listdir(data_path) if isfile(join(data_path, f))]
+
+# Create arrays for training data and labels
+Training_Data, Labels = [], []
+
+# Open training images in our datapath
+# Create a numpy array for training data
+for i, files in enumerate(onlyfiles):
+    image_path = data_path + onlyfiles[i]
+    images = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    Training_Data.append(np.asarray(images, dtype=np.uint8))
+    Labels.append(i)
+
+# Create a numpy array for both training data and labels
+Labels = np.asarray(Labels, dtype=np.int32)
+
+# Initialize facial recognizer
+# model = cv2.face.createLBPHFaceRecognizer()
+# NOTE: For OpenCV 3.0 use cv2.face.createLBPHFaceRecognizer()
+# pip install opencv-contrib-python
+# model = cv2.createLBPHFaceRecognizer()
+
+vimal_model  = cv2.face_LBPHFaceRecognizer.create()
+# Let's train our model 
+vimal_model.train(np.asarray(Training_Data), np.asarray(Labels))
+print("Model trained sucessefully")
+
+
+
+
+
+#predicting our images on the basis of our dataset collection of the images
+
+import cv2
+import numpy as np
+import os
+import smtplib
+
+import pywhatkit as pwt
+
+
+face_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+def face_detector(img, size=0.5):
+    
+    # Convert image to grayscale
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    faces = face_classifier.detectMultiScale(gray, 1.3, 5)
+    if faces is ():
+        return img, []
+    
+    
+    for (x,y,w,h) in faces:
+        cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,255),2)
+        roi = img[y:y+h, x:x+w]
+        roi = cv2.resize(roi, (200, 200))
+    return img, roi
+
+detect = False
+# Open Webcam
+cap = cv2.VideoCapture(0)
+
+while True:
+
+    ret, frame = cap.read()
+    
+    image, face = face_detector(frame)
+    
+    try:
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+
+        # Pass face to prediction model
+        # "results" comprises of a tuple containing the label and the confidence value
+        results = vimal_model.predict(face)
+        # harry_model.predict(face)
+        
+        if results[1] < 500:
+            confidence = int( 100 * (1 - (results[1])/400) )
+            display_string = str(confidence) + '% Confident it is User'
+            
+        cv2.putText(image, display_string, (100, 120), cv2.FONT_HERSHEY_COMPLEX, 1, (255,120,150), 2)
+        
+        if confidence > 80:
+            cv2.putText(image, "it's Shashank", (250, 450), cv2.FONT_HERSHEY_COMPLEX, 1, (0,255,0), 2)
+            cv2.imshow('Face Recognition', image )
+            print("face succesfully")
+            conn = smtplib.SMTP('smtp.gmail.com',587)
+            conn.starttls()
+            conn.login('shashankbansal7023@gmail.com','xxxxxxx')
+            conn.sendmail('shashankbansal7023@gmail.com','shashankbansal7023@gmail.com','Subject: face detect sucessfully\n\n THIS IS FACE OF YOUR SHASHANK BANSAL')
+            conn.quit()
+            detect=True
+           
+            
+            break
+         
+        else:
+            
+            cv2.putText(image, "I dont know, how r u", (250, 450), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+            cv2.imshow('Face Recognition', image )
+            os.system("aws ec2 run-instances --image-id ami-06a0b4e3b7eb7a300 --instance-type t2.micro --count 1  --subnet-id subnet-b717e2dc --security-group-ids sg-9b48aae7 --key-name  key01 ")
+            os.system("aws ec2 create-volume --availability-zone ap-south-1a --volume-type gp2 --size 1")
+            print("instance created")
+            print('volume created')
+            
+                    
+            
+
+    except:
+        cv2.putText(image, "No Face Found", (220, 120) , cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+        cv2.putText(image, "looking for face", (250, 450), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,255), 2)
+        cv2.imshow('Face Recognition', image )
+        pass
+        
+    if cv2.waitKey(20) == 13: #13 is the Enter Key
+        break
+        
+cap.release()
+cv2.destroyAllWindows() 
+if detect==True:
+    number = "+91xxxxxxxxxx"
+    message = "hii I am shashank "
+    pwt.sendwhatmsg_instantly(number,message)
